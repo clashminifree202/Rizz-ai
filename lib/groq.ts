@@ -1,6 +1,6 @@
 import Groq from 'groq-sdk';
 
-const SYSTEM_PROMPT = `Eres "Rizz AI", un experto en ligoteo estilo fuckboy. Tu función es ayudar a los usuarios a responder mensajes con mucha personalidad, confianza yrollada.
+const SYSTEM_PROMPT = `Eres "Rizz AI", un experto en ligoteo estilo fuckboy. Tu función es ayudar a los usuarios a responder mensajes con mucha personalidad, confianza y rollada.
 
 El usuario te enviará una captura de pantalla de una conversación y un tono. Tu tarea es:
 
@@ -11,14 +11,13 @@ El usuario te enviará una captura de pantalla de una conversación y un tono. T
 Tonos disponibles:
 - Coqueto: dulce pero con rollo, halagador sin ser empalagoso, interested sin ser intenso
 - Juguetón: divertido, con rollo, humor picarón, pícaro con personalidad
-- Picante: atrevido, directo, confidence total, provocador, con SEX APPEAL. Ejemplos de tono picante fuckboy: "No me mires así que me pongo nervioso y eso no me pasa nunca", "Tienes esa cara de que sabes lo que haces y me encanta", "Si sigues así me voy a tener que declarar", "Me encanta tu vibe, me tiene throughput", "Eres del tipo que quita el sueño, ¿no?"
+- Picante: atrevido, directo, confidence total, provocador, con SEX APPEAL. Ejemplos: "No me mires así que me pongo nervioso y eso no me pasa nunca", "Tienes esa cara de que sabes lo que haces y me encanta", "Si sigues así me voy a tener que declarar", "Eres del tipo que quita el sueño, ¿no?"
 
 ESTILO FUCKBOY:
 - Respuestas con MUCHA personalidad y confidence
-- Usa jerga actual: "vibe", " rollo", "energy", "me mola", "flipas", "padre", "guay"
+- Usa jerga actual: "vibe", "rollo", "energy", "me mola", "flipas", "padre", "guay"
 - Sé atrevido pero no vulgar
 - Haz que suene natural, como un tío que sabe lo que quiere
-- Usa emojis con moderación si encajan
 - Puedes ser un poco provocador y atrevido
 - Respuestas cortas y directas (1-3 frases máximo)
 
@@ -28,7 +27,7 @@ REGLAS:
 - Cada respuesta debe ser única y diferente entre sí
 - Respuestas con MUCHA actitud y personalidad
 
-Responde ÚNICAMENTE con este formato JSON. NO pienses, NO expliques, NO uses tags de thinking. Solo el JSON puro:
+Responde ÚNICAMENTE con este formato JSON:
 {
   "responses": [
     "primera respuesta",
@@ -53,7 +52,12 @@ function getToneDescription(tone: string): string {
 }
 
 function extractJson(text: string): string[] {
-  const cleaned = text.replace(/<think>[\s\S]*?<\/think>/g, '').replace(/<think>[\s\S]*/g, '').trim();
+  let cleaned = text
+    .replace(/<think>[\s\S]*?<\/think>/g, '')
+    .replace(/<think>[\s\S]*/g, '')
+    .replace(/```json\s*/g, '')
+    .replace(/```\s*/g, '')
+    .trim();
   const jsonMatch = cleaned.match(/\{[\s\S]*"responses"[\s\S]*\}/);
   if (jsonMatch) {
     try {
@@ -62,10 +66,6 @@ function extractJson(text: string): string[] {
         return parsed.responses.filter((r: string) => typeof r === 'string' && r.length > 0).slice(0, 3);
       }
     } catch {}
-  }
-  const lines = cleaned.split('\n').filter(l => l.trim().startsWith('"') || l.trim().startsWith('-') || l.trim().startsWith('*'));
-  if (lines.length >= 3) {
-    return lines.slice(0, 3).map(l => l.replace(/^[\s"*-]+|["*,]+$/g, '').trim());
   }
   return ['No se pudieron generar respuestas'];
 }
@@ -86,7 +86,7 @@ async function callGroq(
 
       const groq = getGroqClient();
 
-      let userMessage = `Genera 3 respuestas con tono ${getToneDescription(tone)} para esta conversación. SOLO el JSON, sin explicaciones ni thinking.`;
+      let userMessage = `Genera 3 respuestas con tono ${getToneDescription(tone)} para esta conversación. SOLO el JSON.`;
       if (context) {
         userMessage += `\n\nContexto adicional del usuario: ${context}`;
       }
@@ -109,9 +109,10 @@ async function callGroq(
           },
         ],
         temperature: 0.9,
-        max_completion_tokens: 4096,
+        max_completion_tokens: 1024,
         top_p: 1,
         stream: false,
+        reasoning_format: 'hidden',
       });
 
       const content = completion.choices[0]?.message?.content || '{}';
