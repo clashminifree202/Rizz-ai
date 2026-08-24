@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface Props {
   onImageSelect: (base64: string) => void;
   disabled?: boolean;
+  showPreview?: boolean;
 }
 
 function compressImage(file: File): Promise<string> {
@@ -47,7 +48,7 @@ function compressImage(file: File): Promise<string> {
   });
 }
 
-export default function ImageUploader({ onImageSelect, disabled }: Props) {
+export default function ImageUploader({ onImageSelect, disabled, showPreview }: Props) {
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [compressing, setCompressing] = useState(false);
@@ -77,6 +78,30 @@ export default function ImageUploader({ onImageSelect, disabled }: Props) {
     },
     [onImageSelect]
   );
+
+  const handlePaste = useCallback(
+    (e: ClipboardEvent) => {
+      if (disabled) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            handleFile(file);
+            break;
+          }
+        }
+      }
+    },
+    [disabled, handleFile]
+  );
+
+  useEffect(() => {
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [handlePaste]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -109,7 +134,7 @@ export default function ImageUploader({ onImageSelect, disabled }: Props) {
     input.click();
   };
 
-  if (preview) {
+  if (preview && showPreview) {
     return (
       <div className="relative w-full max-w-md mx-auto animate-fade-in">
         <img
@@ -123,13 +148,17 @@ export default function ImageUploader({ onImageSelect, disabled }: Props) {
               setPreview(null);
               onImageSelect('');
             }}
-            className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg font-bold shadow-lg transition-all"
+            className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg font-bold shadow-lg transition-all z-10"
           >
             ×
           </button>
         )}
       </div>
     );
+  }
+
+  if (preview && !showPreview) {
+    return null;
   }
 
   return (
@@ -166,7 +195,7 @@ export default function ImageUploader({ onImageSelect, disabled }: Props) {
               Sube la captura de la conversación
             </p>
             <p className="text-white/50 text-sm mt-1">
-              Arrastra y suelta o toca para seleccionar
+              Arrastra, toca o pega con Ctrl+V
             </p>
             <p className="text-white/30 text-xs mt-2">PNG, JPG, WEBP • Máx. 15MB</p>
           </div>

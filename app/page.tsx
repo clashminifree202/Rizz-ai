@@ -121,7 +121,11 @@ export default function Home() {
         {/* Step: Tone + Results (always together) */}
         {(step === 'tone' || step === 'results') && (
           <div className="space-y-6 animate-fade-in">
-            <ImageUploader onImageSelect={handleImageSelect} disabled />
+            <ImageUploader
+              onImageSelect={handleImageSelect}
+              disabled
+              showPreview={!!imageBase64}
+            />
 
             <ToneSelector
               selected={selectedTone}
