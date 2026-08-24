@@ -21,7 +21,7 @@ REGLAS IMPORTANTES:
 - Cada respuesta debe ser única y diferente entre sí
 - Respuestas cortas y directas (1-3 frases máximo)
 
-Responde ÚNICAMENTE con este formato JSON (sin texto adicional):
+Responde ÚNICAMENTE con este formato JSON (sin texto adicional, sin tags de thinking):
 {
   "responses": [
     "primera respuesta",
@@ -45,6 +45,18 @@ function getToneDescription(tone: string): string {
   return tones[tone] || tone;
 }
 
+function extractJson(text: string): string[] {
+  const cleaned = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+  const jsonMatch = cleaned.match(/\{[\s\S]*"responses"[\s\S]*\}/);
+  if (jsonMatch) {
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (Array.isArray(parsed.responses)) {
+      return parsed.responses.slice(0, 3);
+    }
+  }
+  return ['No se pudieron generar respuestas'];
+}
+
 async function callGroq(
   imageBase64: string,
   tone: string,
@@ -61,7 +73,7 @@ async function callGroq(
 
       const groq = getGroqClient();
 
-      let userMessage = `Genera 3 respuestas con tono ${getToneDescription(tone)} para esta conversación.`;
+      let userMessage = `Genera 3 respuestas con tono ${getToneDescription(tone)} para esta conversación. NO uses tags de thinking, responde directamente con el JSON.`;
       if (context) {
         userMessage += `\n\nContexto adicional del usuario: ${context}`;
       }
@@ -87,14 +99,10 @@ async function callGroq(
         max_completion_tokens: 1024,
         top_p: 1,
         stream: false,
-        response_format: { type: 'json_object' },
       });
 
       const content = completion.choices[0]?.message?.content || '{}';
-      const parsed = JSON.parse(content);
-      return Array.isArray(parsed.responses)
-        ? parsed.responses.slice(0, 3)
-        : ['No se pudieron generar respuestas'];
+      return extractJson(content);
     } catch (err: any) {
       lastError = err;
       console.error(`Intento ${attempt + 1} fallido:`, err?.message);
