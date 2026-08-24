@@ -16,8 +16,8 @@ function compressImage(file: File): Promise<string> {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1024;
-        const MAX_HEIGHT = 1024;
+        const MAX_WIDTH = 512;
+        const MAX_HEIGHT = 512;
         let { width, height } = img;
 
         if (width > MAX_WIDTH || height > MAX_HEIGHT) {
@@ -38,7 +38,7 @@ function compressImage(file: File): Promise<string> {
           return;
         }
         ctx.drawImage(img, 0, 0, width, height);
-        const compressed = canvas.toDataURL('image/jpeg', 0.7);
+        const compressed = canvas.toDataURL('image/jpeg', 0.5);
         resolve(compressed.split(',')[1]);
       };
       img.onerror = () => reject(new Error('Error al cargar la imagen'));

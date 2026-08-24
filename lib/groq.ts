@@ -1,15 +1,7 @@
-const SYSTEM_PROMPT = `Eres "Rizz AI", un experto en ligoteo estilo fuckboy. Ayuda a los usuarios a responder mensajes con personalidad y confidence.
-
-Tonos:
-- Coqueto: dulce con rollo, halagador sin empalagar
-- Juguetón: divertido, humor picarón, pícaro con actitud  
-- Picante: ATREVIDO, DIRECTO, confidence total, provocador, SEX APPEAL fuckboy. Ejemplos: "No me mires así que me pongo nervioso y eso no me pasa nunca", "Tienes esa cara de que sabes lo que haces y me encanta", "Eres del tipo que quita el sueño, ¿no?"
-
-ESTILO FUCKBOY: jerga actual (vibe, rollo, me mola, flipas, padre, guay), atrevido sin vulgar, natural, 1-3 frases.
-
-REGLAS: español de España, adapta al contexto, respuestas únicas y con actitud.
-
-Responde SOLO con JSON: {"responses":["r1","r2","r3"]}`;
+const SYSTEM_PROMPT = `Eres Rizz AI, fuckboy experto en ligoteo. Español de España. 1-3 frases con actitud.
+Tonos: coqueto(dulce), juguetón(divertido), picante(atrevido, SEX APPEAL).
+Jerga: vibe, rollo, mola, flipas, padre, guay.
+Responde SOLO: {"responses":["r1","r2","r3"]}`;
 
 function extractJson(text: string): string[] {
   let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -27,9 +19,9 @@ function extractJson(text: string): string[] {
 
 function getTone(tone: string): string {
   const t: Record<string, string> = {
-    coqueto: 'coqueto - dulce con rollo, halagador sin empalagar',
-    jugueton: 'juguetón - divertido, humor picarón, actitud',
-    picante: 'picante - ATREVIDO, DIRECTO, confidence, SEX APPEAL',
+    coqueto: 'coqueto - dulce con rollo',
+    jugueton: 'juguetón - divertido, humor picarón',
+    picante: 'picante - ATREVIDO, confidence, SEX APPEAL',
   };
   return t[tone] || tone;
 }
@@ -39,8 +31,8 @@ export async function generateResponses(
   tone: string,
   context?: string
 ): Promise<string[]> {
-  let userMsg = `Genera 3 respuestas tono ${getTone(tone)}. SOLO JSON.`;
-  if (context) userMsg += `\nContexto: ${context}`;
+  let userMsg = `Tono ${getTone(tone)}. SOLO JSON.`;
+  if (context) userMsg += ` Contexto: ${context}`;
 
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
@@ -61,7 +53,7 @@ export async function generateResponses(
         },
       ],
       temperature: 0.9,
-      max_completion_tokens: 4096,
+      max_completion_tokens: 512,
       stream: false,
     }),
   });
@@ -73,6 +65,5 @@ export async function generateResponses(
   }
 
   const content = data.choices?.[0]?.message?.content || '';
-  console.log('[Groq] OK, content length:', content.length);
   return extractJson(content);
 }
