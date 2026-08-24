@@ -1,5 +1,3 @@
-import Groq from 'groq-sdk';
-
 const SYSTEM_PROMPT = `Eres "Rizz AI", un experto en ligoteo estilo fuckboy. Tu función es ayudar a los usuarios a responder mensajes con mucha personalidad, confianza y rollada.
 
 El usuario te enviará una captura de pantalla de una conversación y un tono. Tu tarea es:
@@ -35,12 +33,6 @@ Responde ÚNICAMENTE con este formato JSON:
     "tercera respuesta"
   ]
 }`;
-
-function getGroqClient(): Groq {
-  return new Groq({
-    apiKey: process.env.GROQ_API_KEY,
-  });
-}
 
 function getToneDescription(tone: string): string {
   const tones: Record<string, string> = {
@@ -84,48 +76,60 @@ async function callGroq(
         await new Promise((r) => setTimeout(r, 2000 * attempt));
       }
 
-      const groq = getGroqClient();
-
       let userMessage = `Genera 3 respuestas con tono ${getToneDescription(tone)} para esta conversación. SOLO el JSON.`;
       if (context) {
         userMessage += `\n\nContexto adicional del usuario: ${context}`;
       }
 
-      const completion = await groq.chat.completions.create({
-        model: 'qwen/qwen3.6-27b',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: userMessage },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${imageBase64}`,
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'qwen/qwen3.6-27b',
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: userMessage },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:image/jpeg;base64,${imageBase64}`,
+                  },
                 },
-              },
-            ],
-          },
-        ],
-        temperature: 0.9,
-        max_completion_tokens: 2048,
-        top_p: 1,
-        stream: false,
-        reasoning_format: 'parsed',
+              ],
+            },
+          ],
+          temperature: 0.9,
+          max_completion_tokens: 4096,
+          top_p: 1,
+          stream: false,
+          reasoning_format: 'parsed',
+        }),
       });
 
-      const content = completion.choices[0]?.message?.content || '';
+      if (!response.ok) {
+        const errBody = await response.text();
+        console.error('[Groq] HTTP Error:', response.status, errBody);
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content || '';
       console.log('[Groq] Content length:', content.length);
       return extractJson(content);
     } catch (err: any) {
       lastError = err;
       console.error(`Intento ${attempt + 1} fallido:`, err?.message);
 
-      if (err?.status === 429) {
+      if (err?.message?.includes('429')) {
         continue;
       }
-      if (err?.status && err.status < 500) {
+      if (err?.message?.startsWith('HTTP 4') && !err?.message?.includes('429')) {
         throw err;
       }
     }
