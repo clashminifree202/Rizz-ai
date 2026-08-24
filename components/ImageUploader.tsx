@@ -6,6 +6,7 @@ interface Props {
   onImageSelect: (base64: string) => void;
   disabled?: boolean;
   showPreview?: boolean;
+  imageBase64?: string;
 }
 
 function compressImage(file: File): Promise<string> {
@@ -48,10 +49,16 @@ function compressImage(file: File): Promise<string> {
   });
 }
 
-export default function ImageUploader({ onImageSelect, disabled, showPreview }: Props) {
+export default function ImageUploader({ onImageSelect, disabled, showPreview, imageBase64 }: Props) {
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [compressing, setCompressing] = useState(false);
+
+  useEffect(() => {
+    if (imageBase64 && !preview) {
+      setPreview(`data:image/jpeg;base64,${imageBase64}`);
+    }
+  }, [imageBase64]);
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -64,11 +71,7 @@ export default function ImageUploader({ onImageSelect, disabled, showPreview }: 
       setCompressing(true);
       try {
         const base64 = await compressImage(file);
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setPreview(e.target?.result as string);
-        };
-        reader.readAsDataURL(file);
+        setPreview(`data:image/jpeg;base64,${base64}`);
         onImageSelect(base64);
       } catch {
         alert('Error al procesar la imagen');
@@ -134,7 +137,7 @@ export default function ImageUploader({ onImageSelect, disabled, showPreview }: 
     input.click();
   };
 
-  if (preview && showPreview) {
+  if (showPreview && preview) {
     return (
       <div className="relative w-full max-w-md mx-auto animate-fade-in">
         <img
@@ -155,10 +158,6 @@ export default function ImageUploader({ onImageSelect, disabled, showPreview }: 
         )}
       </div>
     );
-  }
-
-  if (preview && !showPreview) {
-    return null;
   }
 
   return (

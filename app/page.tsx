@@ -125,6 +125,7 @@ export default function Home() {
               onImageSelect={handleImageSelect}
               disabled
               showPreview={!!imageBase64}
+              imageBase64={imageBase64}
             />
 
             <ToneSelector
