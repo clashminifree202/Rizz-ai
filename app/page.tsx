@@ -6,12 +6,7 @@ import ToneSelector from '@/components/ToneSelector';
 import ResponseCard from '@/components/ResponseCard';
 import ActionBar from '@/components/ActionBar';
 import ContextModal from '@/components/ContextModal';
-import RateLimitBar from '@/components/RateLimitBar';
-import {
-  canMakeRequest,
-  addRequest,
-  getRemainingRequests,
-} from '@/lib/rateLimit';
+
 
 type Step = 'upload' | 'tone' | 'loading' | 'results';
 
@@ -37,11 +32,6 @@ export default function Home() {
 
   const generate = useCallback(
     async (context?: string) => {
-      if (!canMakeRequest()) {
-        setError('Has alcanzado el límite de 5 peticiones por hora. Espera un poco e intenta de nuevo.');
-        return;
-      }
-
       if (!imageBase64 || !selectedTone) return;
 
       setLoading(true);
@@ -65,7 +55,6 @@ export default function Home() {
           throw new Error(data.error || 'Error al generar respuestas');
         }
 
-        addRequest();
         setResponses(data.responses || []);
         setStep('results');
       } catch (err: any) {
@@ -124,11 +113,6 @@ export default function Home() {
         </p>
       </div>
 
-      {/* Rate Limit */}
-      <div className="w-full mb-6 animate-fade-in">
-        <RateLimitBar />
-      </div>
-
       {/* Content */}
       <div className="w-full max-w-md mx-auto space-y-6">
         {/* Step: Upload */}
@@ -143,7 +127,7 @@ export default function Home() {
             <ToneSelector
               selected={selectedTone}
               onSelect={handleToneSelect}
-              loading={loading}
+              disabled={loading}
             />
           </div>
         )}
