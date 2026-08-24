@@ -21,13 +21,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (typeof image !== 'string' || image.length < 100) {
+      return NextResponse.json(
+        { error: 'Imagen no válida' },
+        { status: 400 }
+      );
+    }
+
     const responses = await generateResponses(image, tone, context);
 
     return NextResponse.json({ responses });
   } catch (error: any) {
-    console.error('Error en /api/generate:', error);
+    console.error('Error en /api/generate:', error?.message || error);
+
+    if (error?.status === 429) {
+      return NextResponse.json(
+        { error: 'Demasiadas peticiones. Espera un momento e intenta de nuevo.' },
+        { status: 429 }
+      );
+    }
+
+    if (error?.message?.includes('API key')) {
+      return NextResponse.json(
+        { error: 'Error de configuración del servidor' },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
-      { error: 'Error al generar respuestas', detail: error?.message },
+      { error: 'Error al generar respuestas. Inténtalo de nuevo.' },
       { status: 500 }
     );
   }

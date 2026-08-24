@@ -7,26 +7,73 @@ interface Props {
   disabled?: boolean;
 }
 
+function compressImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1024;
+        const MAX_HEIGHT = 1024;
+        let { width, height } = img;
+
+        if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+          if (width > height) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          } else {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('No se pudo crear el canvas'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressed = canvas.toDataURL('image/jpeg', 0.7);
+        resolve(compressed.split(',')[1]);
+      };
+      img.onerror = () => reject(new Error('Error al cargar la imagen'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Error al leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function ImageUploader({ onImageSelect, disabled }: Props) {
   const [preview, setPreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [compressing, setCompressing] = useState(false);
 
   const handleFile = useCallback(
-    (file: File) => {
+    async (file: File) => {
       if (!file.type.startsWith('image/')) return;
-      if (file.size > 10 * 1024 * 1024) {
-        alert('La imagen no puede superar 10MB');
+      if (file.size > 15 * 1024 * 1024) {
+        alert('La imagen no puede superar 15MB');
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setPreview(result);
-        const base64 = result.split(',')[1];
+      setCompressing(true);
+      try {
+        const base64 = await compressImage(file);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setPreview(e.target?.result as string);
+        };
+        reader.readAsDataURL(file);
         onImageSelect(base64);
-      };
-      reader.readAsDataURL(file);
+      } catch {
+        alert('Error al procesar la imagen');
+      } finally {
+        setCompressing(false);
+      }
     },
     [onImageSelect]
   );
@@ -51,7 +98,7 @@ export default function ImageUploader({ onImageSelect, disabled }: Props) {
   }, []);
 
   const handleClick = () => {
-    if (disabled) return;
+    if (disabled || compressing) return;
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -100,19 +147,31 @@ export default function ImageUploader({ onImageSelect, disabled }: Props) {
             ? 'border-purple-400 bg-purple-500/10 scale-105'
             : 'border-white/20 bg-white/5 hover:border-purple-400/50 hover:bg-white/10'
         }
-        ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+        ${disabled || compressing ? 'opacity-50 cursor-not-allowed' : ''}
       `}
     >
-      <div className="text-6xl animate-pulse-glow">📸</div>
-      <div className="text-center">
-        <p className="text-white font-semibold text-lg">
-          Sube la captura de la conversación
-        </p>
-        <p className="text-white/50 text-sm mt-1">
-          Arrastra y suelta o toca para seleccionar
-        </p>
-        <p className="text-white/30 text-xs mt-2">PNG, JPG, WEBP • Máx. 10MB</p>
-      </div>
+      {compressing ? (
+        <>
+          <div className="relative">
+            <div className="w-12 h-12 border-3 border-purple-500/30 rounded-full" />
+            <div className="absolute top-0 left-0 w-12 h-12 border-3 border-transparent border-t-purple-500 rounded-full animate-spin" />
+          </div>
+          <p className="text-white/60 text-sm">Comprimiendo imagen...</p>
+        </>
+      ) : (
+        <>
+          <div className="text-6xl animate-pulse-glow">📸</div>
+          <div className="text-center">
+            <p className="text-white font-semibold text-lg">
+              Sube la captura de la conversación
+            </p>
+            <p className="text-white/50 text-sm mt-1">
+              Arrastra y suelta o toca para seleccionar
+            </p>
+            <p className="text-white/30 text-xs mt-2">PNG, JPG, WEBP • Máx. 15MB</p>
+          </div>
+        </>
+      )}
     </div>
   );
 }
