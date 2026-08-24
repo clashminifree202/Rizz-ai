@@ -21,7 +21,7 @@ REGLAS IMPORTANTES:
 - Cada respuesta debe ser única y diferente entre sí
 - Respuestas cortas y directas (1-3 frases máximo)
 
-Responde ÚNICAMENTE con este formato JSON (sin texto adicional, sin tags de thinking):
+Responde ÚNICAMENTE con este formato JSON. NO pienses, NO expliques, NO uses tags de thinking. Solo el JSON puro:
 {
   "responses": [
     "primera respuesta",
@@ -46,13 +46,19 @@ function getToneDescription(tone: string): string {
 }
 
 function extractJson(text: string): string[] {
-  const cleaned = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+  const cleaned = text.replace(/<think>[\s\S]*?<\/think>/g, '').replace(/<think>[\s\S]*/g, '').trim();
   const jsonMatch = cleaned.match(/\{[\s\S]*"responses"[\s\S]*\}/);
   if (jsonMatch) {
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (Array.isArray(parsed.responses)) {
-      return parsed.responses.slice(0, 3);
-    }
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(parsed.responses) && parsed.responses.length > 0) {
+        return parsed.responses.filter((r: string) => typeof r === 'string' && r.length > 0).slice(0, 3);
+      }
+    } catch {}
+  }
+  const lines = cleaned.split('\n').filter(l => l.trim().startsWith('"') || l.trim().startsWith('-') || l.trim().startsWith('*'));
+  if (lines.length >= 3) {
+    return lines.slice(0, 3).map(l => l.replace(/^[\s"*-]+|["*,]+$/g, '').trim());
   }
   return ['No se pudieron generar respuestas'];
 }
@@ -73,7 +79,7 @@ async function callGroq(
 
       const groq = getGroqClient();
 
-      let userMessage = `Genera 3 respuestas con tono ${getToneDescription(tone)} para esta conversación. NO uses tags de thinking, responde directamente con el JSON.`;
+      let userMessage = `Genera 3 respuestas con tono ${getToneDescription(tone)} para esta conversación. SOLO el JSON, sin explicaciones ni thinking.`;
       if (context) {
         userMessage += `\n\nContexto adicional del usuario: ${context}`;
       }
@@ -96,7 +102,7 @@ async function callGroq(
           },
         ],
         temperature: 0.9,
-        max_completion_tokens: 1024,
+        max_completion_tokens: 4096,
         top_p: 1,
         stream: false,
       });
