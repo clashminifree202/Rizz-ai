@@ -53,7 +53,7 @@ export async function generateResponses(
         },
       ],
       temperature: 0.9,
-      max_completion_tokens: 512,
+      max_completion_tokens: 300,
       stream: false,
     }),
   });
