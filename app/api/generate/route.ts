@@ -33,23 +33,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ responses });
   } catch (error: any) {
     console.error('Error en /api/generate:', error?.message || error);
-
-    if (error?.status === 429) {
-      return NextResponse.json(
-        { error: 'Demasiadas peticiones. Espera un momento e intenta de nuevo.' },
-        { status: 429 }
-      );
-    }
-
-    if (error?.message?.includes('API key')) {
-      return NextResponse.json(
-        { error: 'Error de configuración del servidor' },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json(
-      { error: 'Error al generar respuestas. Inténtalo de nuevo.' },
+      { error: error?.message || 'Error al generar respuestas.' },
       { status: 500 }
     );
   }
