@@ -109,13 +109,14 @@ async function callGroq(
           },
         ],
         temperature: 0.9,
-        max_completion_tokens: 1024,
+        max_completion_tokens: 2048,
         top_p: 1,
         stream: false,
-        reasoning_format: 'hidden',
+        reasoning_format: 'parsed',
       });
 
-      const content = completion.choices[0]?.message?.content || '{}';
+      const content = completion.choices[0]?.message?.content || '';
+      console.log('[Groq] Content length:', content.length);
       return extractJson(content);
     } catch (err: any) {
       lastError = err;
