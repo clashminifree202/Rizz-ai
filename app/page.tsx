@@ -7,8 +7,7 @@ import ResponseCard from '@/components/ResponseCard';
 import ActionBar from '@/components/ActionBar';
 import ContextModal from '@/components/ContextModal';
 
-
-type Step = 'upload' | 'tone' | 'loading' | 'results';
+type Step = 'upload' | 'tone' | 'results';
 
 export default function Home() {
   const [step, setStep] = useState<Step>('upload');
@@ -31,12 +30,12 @@ export default function Home() {
   }, []);
 
   const generate = useCallback(
-    async (context?: string) => {
-      if (!imageBase64 || !selectedTone) return;
+    async (tone?: string, context?: string) => {
+      const useTone = tone || selectedTone;
+      if (!imageBase64 || !useTone) return;
 
       setLoading(true);
       setError(null);
-      setStep('loading');
 
       try {
         const res = await fetch('/api/generate', {
@@ -44,7 +43,7 @@ export default function Home() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             image: imageBase64,
-            tone: selectedTone,
+            tone: useTone,
             context: context || currentContext || undefined,
           }),
         });
@@ -59,7 +58,6 @@ export default function Home() {
         setStep('results');
       } catch (err: any) {
         setError(err.message || 'Error de conexión');
-        setStep('tone');
       } finally {
         setLoading(false);
       }
@@ -70,7 +68,7 @@ export default function Home() {
   const handleToneSelect = useCallback(
     (tone: string) => {
       setSelectedTone(tone);
-      generate();
+      generate(tone);
     },
     [generate]
   );
@@ -87,7 +85,7 @@ export default function Home() {
     (context: string) => {
       setCurrentContext(context);
       setContextModalOpen(false);
-      generate(context);
+      generate(undefined, context);
     },
     [generate]
   );
@@ -120,68 +118,66 @@ export default function Home() {
           <ImageUploader onImageSelect={handleImageSelect} />
         )}
 
-        {/* Step: Tone Selection */}
-        {step === 'tone' && (
+        {/* Step: Tone + Results (always together) */}
+        {(step === 'tone' || step === 'results') && (
           <div className="space-y-6 animate-fade-in">
             <ImageUploader onImageSelect={handleImageSelect} disabled />
+
             <ToneSelector
               selected={selectedTone}
               onSelect={handleToneSelect}
               disabled={loading}
             />
-          </div>
-        )}
 
-        {/* Step: Loading */}
-        {step === 'loading' && (
-          <div className="flex flex-col items-center gap-4 py-16 animate-fade-in">
-            <div className="relative">
-              <div className="w-16 h-16 border-4 border-purple-500/20 rounded-full" />
-              <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-purple-500 rounded-full animate-spin" />
-            </div>
-            <div className="text-center">
-              <p className="text-white font-semibold">Analizando la conversación...</p>
-              <p className="text-white/50 text-sm mt-1">La IA está leyendo tu captura</p>
-            </div>
-          </div>
-        )}
+            {/* Loading inline */}
+            {loading && (
+              <div className="flex items-center justify-center gap-3 py-6 animate-fade-in">
+                <div className="relative">
+                  <div className="w-6 h-6 border-2 border-purple-500/30 rounded-full" />
+                  <div className="absolute top-0 left-0 w-6 h-6 border-2 border-transparent border-t-purple-500 rounded-full animate-spin" />
+                </div>
+                <span className="text-white/60 text-sm">Generando respuestas...</span>
+              </div>
+            )}
 
-        {/* Step: Results */}
-        {step === 'results' && (
-          <div className="space-y-4 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <h2 className="text-white font-bold text-lg">Tus respuestas</h2>
-              <button
-                onClick={handleStartOver}
-                className="text-white/50 hover:text-white text-sm flex items-center gap-1 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Nueva captura
-              </button>
-            </div>
+            {/* Results */}
+            {step === 'results' && !loading && responses.length > 0 && (
+              <div className="space-y-4 animate-slide-up">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-white font-bold text-lg">Tus respuestas</h2>
+                  <button
+                    onClick={handleStartOver}
+                    className="text-white/50 hover:text-white text-sm flex items-center gap-1 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Nueva captura
+                  </button>
+                </div>
 
-            <div className="space-y-3">
-              {responses.map((response, i) => (
-                <ResponseCard key={i} text={response} index={i} />
-              ))}
-            </div>
+                <div className="space-y-3">
+                  {responses.map((response, i) => (
+                    <ResponseCard key={i} text={response} index={i} />
+                  ))}
+                </div>
 
-            <div className="pt-2">
-              <ActionBar
-                onRegenerate={handleRegenerate}
-                onAddContext={handleAddContext}
-                loading={loading}
-              />
-            </div>
-          </div>
-        )}
+                <div className="pt-2">
+                  <ActionBar
+                    onRegenerate={handleRegenerate}
+                    onAddContext={handleAddContext}
+                    loading={loading}
+                  />
+                </div>
+              </div>
+            )}
 
-        {/* Error */}
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm animate-fade-in">
-            {error}
+            {/* Error */}
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm animate-fade-in">
+                {error}
+              </div>
+            )}
           </div>
         )}
       </div>
